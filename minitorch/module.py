@@ -1,3 +1,6 @@
+from functools import reduce
+
+
 class Module:
     """
     Modules form a tree that store parameters and other
@@ -21,11 +24,15 @@ class Module:
 
     def train(self):
         "Set the mode of this module and all descendent modules to `train`."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        self.training = True
+        for module in self._modules.values():
+            module.train()
 
     def eval(self):
         "Set the mode of this module and all descendent modules to `eval`."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        self.training = False
+        for module in self._modules.values():
+            module.eval()
 
     def named_parameters(self):
         """
@@ -35,11 +42,25 @@ class Module:
         Returns:
             list of pairs: Contains the name and :class:`Parameter` of each ancestor parameter.
         """
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        def extend_name(n, v):
+            return "{}.{}".format(n, v)
+
+        exts = []
+        for name, m in self._modules.items():
+            params = m.named_parameters()
+            ext = {}
+            for k, v in params:
+                ext[extend_name(name, k)] = v
+            exts.append(ext)
+
+        return reduce(
+            lambda acc, v: acc + list(v.items()), exts, list(self._parameters.items())
+        )
 
     def parameters(self):
         "Enumerate over all the parameters of this module and its descendents."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return [x[1] for x in self.named_parameters()]
 
     def add_parameter(self, k, v):
         """

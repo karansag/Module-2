@@ -1,10 +1,6 @@
+from collections import defaultdict
+
 variable_count = 1
-
-
-# ## Module 1
-
-# Variable is the main class for autodifferentiation logic for scalars
-# and tensors.
 
 
 class Variable:
@@ -12,8 +8,8 @@ class Variable:
     Attributes:
         history (:class:`History` or None) : the Function calls that created this variable or None if constant
         derivative (variable type): the derivative with respect to this variable
-        grad (variable type) : alias for derivative, used for tensors
-        name (string) : a globally unique name of the variable
+        grad (variable type) : alias for derivative (PyTorch name)
+        name (string) : an optional name for debugging
     """
 
     def __init__(self, history, name=None):
@@ -32,6 +28,7 @@ class Variable:
             self.name = name
         else:
             self.name = self.unique_id
+
         self.used = 0
 
     def requires_grad_(self, val):
@@ -66,6 +63,7 @@ class Variable:
         "True if this variable created by the user (no `last_fn`)"
         return self.history.last_fn is None
 
+    ## IGNORE
     def accumulate_derivative(self, val):
         """
         Add `val` to the the derivative accumulated on this variable.
@@ -107,9 +105,6 @@ class Variable:
         return 0.0
 
 
-# Some helper functions for handling optional tuples.
-
-
 def wrap_tuple(x):
     "Turn a possible value into a tuple"
     if isinstance(x, tuple):
@@ -124,9 +119,6 @@ def unwrap_tuple(x):
     return x
 
 
-# Classes for Functions.
-
-
 class Context:
     """
     Context class is used by `Function` to store information during the forward pass.
@@ -134,7 +126,8 @@ class Context:
     Attributes:
         no_grad (bool) : do not save gradient information
         saved_values (tuple) : tuple of values saved for backward pass
-        saved_tensors (tuple) : alias for saved_values
+        saved_tensors (tuple) : alias for saved_values (PyTorch name)
+
     """
 
     def __init__(self, no_grad=False):
@@ -190,7 +183,7 @@ class History:
         Returns:
             list of numbers : a derivative with respect to `inputs`
         """
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return self.last_fn.chain_rule(self.ctx, self.inputs, d_output)
 
 
 class FunctionBase:
@@ -238,18 +231,11 @@ class FunctionBase:
                 raw_vals.append(v.get_data())
             else:
                 raw_vals.append(v)
-
-        # Create the context.
         ctx = Context(not need_grad)
-
-        # Call forward with the variables.
         c = cls.forward(ctx, *raw_vals)
-        assert isinstance(c, cls.data_type), "Expected return typ %s got %s" % (
-            cls.data_type,
-            type(c),
-        )
-
-        # Create a new variable from the result with a new history.
+        assert isinstance(
+            c, cls.data_type
+        ), "Expected return typ %s got %s for value %s" % (cls.data_type, type(c), c,)
         back = None
         if need_grad:
             back = History(cls, ctx, vals)
@@ -266,16 +252,14 @@ class FunctionBase:
             d_output (number) : The `d_output` value in the chain rule.
 
         Returns:
-            list of (`Variable`, number) : A list of non-constant variables with their derivatives
+            list of (`Variable`, number) A list of non-constant variables with their derivatives
             (see `is_constant` to remove unneeded variables)
 
         """
-        # Tip: Note when implementing this function that
-        # cls.backward may return either a value or a tuple.
-        raise NotImplementedError('Need to include this file from past assignment.')
-
-
-# Algorithms for backpropagation
+        derivs = wrap_tuple(cls.backward(ctx, d_output))
+        return [
+            (var, deriv) for (var, deriv) in zip(inputs, derivs) if not is_constant(var)
+        ]
 
 
 def is_constant(val):
@@ -283,30 +267,46 @@ def is_constant(val):
 
 
 def topological_sort(variable):
-    """
-    Computes the topological order of the computation graph.
+    "Returns nodes in topological order"
+    order = []
+    seen = set()
 
-    Args:
-        variable (:class:`Variable`): The right-most variable
+    def visit(var):
+        if var.unique_id in seen:
+            return
+        if not var.is_leaf():
+            for m in var.history.inputs:
+                if not is_constant(m):
+                    visit(m)
+        seen.add(var.unique_id)
+        order.insert(0, var)
 
-    Returns:
-        list of Variables : Non-constant Variables in topological order
-                            starting from the right.
-    """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    visit(variable)
+    return order
 
 
 def backpropagate(variable, deriv):
     """
-    Runs backpropagation on the computation graph in order to
-    compute derivatives for the leave nodes.
+    Runs a breadth-first search on the computation graph in order to
+    backpropagate derivatives to the leaves.
 
     See :doc:`backpropagate` for details on the algorithm.
 
     Args:
-        variable (:class:`Variable`): The right-most variable
+        variable (:class:`Variable`): The final variable
         deriv (number) : Its derivative that we want to propagate backward to the leaves.
 
-    No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
+    No return. Should write to its results to the derivative values of each leaf.
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    nodes = topological_sort(variable)
+    derivs = defaultdict(lambda: 0)
+    derivs[variable.unique_id] = deriv
+
+    for n in nodes:
+        if n.is_leaf():
+            n.accumulate_derivative(derivs[n.unique_id])
+        else:
+            deriv_output = derivs[n.unique_id]
+            derivative_values = n.history.backprop_step(deriv_output)
+            for inp, deriv_value in derivative_values:
+                derivs[inp.unique_id] += deriv_value

@@ -22,7 +22,15 @@ def central_difference(f, *vals, arg=0, epsilon=1e-6):
     Returns:
         float : An approximation of :math:`f'_i(x_0, \ldots, x_{n-1})`
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    point_above = (
+        tuple(vals[:arg]) + tuple([vals[arg] + epsilon]) + tuple(vals[arg + 1 :])
+    )
+    point_below = (
+        tuple(vals[:arg]) + tuple([vals[arg] - epsilon]) + tuple(vals[arg + 1 :])
+    )
+
+    ans = (f(*point_above) - f(*point_below)) / (2 * epsilon)
+    return ans
 
 
 # ## Task 1.2 and 1.4
@@ -58,37 +66,34 @@ class Scalar(Variable):
         return Mul.apply(b, Inv.apply(self))
 
     def __add__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
-
-    def __bool__(self):
-        return bool(self.data)
+        return Add.apply(self, b)
 
     def __lt__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return LT.apply(self, b)
 
     def __gt__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return LT.apply(Neg.apply(self), Neg.apply(b))
 
     def __eq__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return EQ.apply(self, b)
 
     def __sub__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return Add.apply(self, Neg.apply(b))
 
     def __neg__(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return Neg.apply(self)
 
     def log(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return Log.apply(self)
 
     def exp(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return Exp.apply(self)
 
     def sigmoid(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return Sigmoid.apply(self)
 
     def relu(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return ReLU.apply(self)
 
     def get_data(self):
         "Returns the raw float value"
@@ -178,11 +183,14 @@ class Mul(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        ctx.save_for_backward(a, b)
+        return a * b
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        a, b = ctx.saved_values
+        # f'_a(a, b), f'_b(a, b)
+        return (b * d_output, a * d_output)
 
 
 class Inv(ScalarFunction):
@@ -190,11 +198,13 @@ class Inv(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        ctx.save_for_backward(a)
+        return operators.inv(a)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        a = ctx.saved_values
+        return operators.inv_back(a, d_output)
 
 
 class Neg(ScalarFunction):
@@ -202,11 +212,11 @@ class Neg(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return operators.neg(a)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return -d_output
 
 
 class Sigmoid(ScalarFunction):
@@ -214,11 +224,13 @@ class Sigmoid(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        ctx.save_for_backward(a)
+        return operators.sigmoid(a)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        a = ctx.saved_values
+        return operators.sigmoid_back(a, d_output)
 
 
 class ReLU(ScalarFunction):
@@ -226,11 +238,13 @@ class ReLU(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        ctx.save_for_backward(a)
+        return operators.relu(a)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        a = ctx.saved_values
+        return operators.relu_back(a, d_output)
 
 
 class Exp(ScalarFunction):
@@ -238,11 +252,13 @@ class Exp(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        ctx.save_for_backward(a)
+        return operators.exp(a)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        a = ctx.saved_values
+        return operators.exp(a) * d_output
 
 
 class LT(ScalarFunction):
@@ -250,11 +266,11 @@ class LT(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return operators.lt(a, b)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return 0
 
 
 class EQ(ScalarFunction):
@@ -262,11 +278,12 @@ class EQ(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        # ctx.save_for_backward(a, b)
+        return operators.eq(a, b)
 
     @staticmethod
     def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        return 0
 
 
 def derivative_check(f, *scalars):
