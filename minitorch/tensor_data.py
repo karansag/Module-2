@@ -1,4 +1,5 @@
 import random
+from operator import mul, itemgetter
 from .operators import prod
 from numpy import array, float64, ndarray
 import numba
@@ -23,9 +24,7 @@ def index_to_position(index, strides):
     Returns:
         int : position in storage
     """
-
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError('Need to implement for Task 2.1')
+    return int(sum(map(mul, index, strides)))
 
 
 def to_index(ordinal, shape, out_index):
@@ -44,8 +43,25 @@ def to_index(ordinal, shape, out_index):
       None : Fills in `out_index`.
 
     """
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError('Need to implement for Task 2.1')
+
+    def _inner(stride_list, remaining=ordinal):
+        """Assumes sorted (see below) stride_list
+
+        Modifies `out_index` during iterations
+        """
+        if not stride_list:
+            return
+        [ind, stride] = stride_list[0]
+        quot = remaining // stride
+        out_index[ind] = quot
+        return _inner(stride_list[1:], remaining % stride)
+
+    strides = strides_from_shape(shape)
+    # List of tuples, sorted desc. by stride item, of (index, stride_item)
+    # E.g., for stride (1, 2, 6) => ((0, 6), (1, 2), (0, 1))
+    stride_list = sorted(enumerate(strides), key=itemgetter(1), reverse=True)
+    _inner(stride_list)
+    return out_index
 
 
 def broadcast_index(big_index, big_shape, shape, out_index):
@@ -190,9 +206,16 @@ class TensorData:
         assert list(sorted(order)) == list(
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
+        new_shape = map(lambda ind: self.shape[ind], order)
+        new_strides = map(lambda ind: self.strides[ind], order)
 
-        # TODO: Implement for Task 2.1.
-        raise NotImplementedError('Need to implement for Task 2.1')
+        return TensorData(self._storage, tuple(new_shape), tuple(new_strides))
+
+    def __str__(self):
+        return self.to_string()
+
+    def __repr__(self):
+        return self.to_string()
 
     def to_string(self):
         s = ""
