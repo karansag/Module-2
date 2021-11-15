@@ -81,8 +81,16 @@ def broadcast_index(big_index, big_shape, shape, out_index):
     Returns:
         None : Fills in `out_index`.
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError('Need to implement for Task 2.2')
+    for ind in range(-1, -len(shape) - 1, -1):
+        if big_shape[ind] == shape[ind]:
+            out_index[ind] = big_index[ind]
+        elif shape[ind] == 1 and big_shape[ind] > 1:
+            out_index[ind] = 1
+        else:
+            raise IndexError("big shape and shape are not compatible")
+    # If `out_index` is larger than `shape`, map leading elements to 0
+    for ind in range(-len(shape) - 1, len(out_index) - 1, -1):
+        out_index[ind] = 0
 
 
 def shape_broadcast(shape1, shape2):
@@ -99,8 +107,27 @@ def shape_broadcast(shape1, shape2):
     Raises:
         IndexingError : if cannot broadcast
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError('Need to implement for Task 2.2')
+    if shape1 == shape2:
+        return shape1
+
+    if not (all(x > 0 for x in shape1) and all(x > 0 for x in shape2)):
+        raise IndexingError(
+            "shape1 and shape2 are not broadcastable because of a 0 dimension"
+        )
+    if len(shape1) > len(shape2):
+        return shape_broadcast(shape2, shape1)
+    if len(shape1) < len(shape2):
+        return shape_broadcast((1,) + shape1, shape2)
+
+    def broadcastable_pair(x1, x2):
+        return x1 == x2 or x1 == 1 or x2 == 1
+
+    if not all(broadcastable_pair(x, y) for (x, y) in zip(shape1, shape2)):
+        raise IndexingError(
+            "shape1 and shape2 are not broadcastable because some aligned dimension is both not equal and neither is equal to 1"
+        )
+
+    return tuple(map(max, shape1, shape2))
 
 
 def strides_from_shape(shape):
